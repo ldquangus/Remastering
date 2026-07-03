@@ -14,14 +14,14 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-MAX_FILE_SIZE = 30 * 1024 * 1024  # 30MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB - giới hạn an toàn cho gói Free 512MB RAM
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
 
 # ===== PITCH-SHIFT GIỮ TEMPO (Overlap-Add Granular) — port từ thuật toán JS gốc =====
 
 def hann_window(size):
-    n = np.arange(size)
+    n = np.arange(size, dtype=np.float32)
     return 0.5 * (1 - np.cos(2 * np.pi * n / (size - 1)))
 
 
@@ -38,9 +38,9 @@ def resample_linear(x: np.ndarray, ratio: float) -> np.ndarray:
 def time_stretch_ola(x: np.ndarray, out_len: int) -> np.ndarray:
     grain_size = 4096
     synth_hop = grain_size // 4
-    win = hann_window(grain_size)
-    output = np.zeros(out_len, dtype=np.float64)
-    win_sum = np.zeros(out_len, dtype=np.float64)
+    win = hann_window(grain_size).astype(np.float32)
+    output = np.zeros(out_len, dtype=np.float32)
+    win_sum = np.zeros(out_len, dtype=np.float32)
     stretch_factor = out_len / max(1, len(x))
     analysis_hop = synth_hop / stretch_factor if stretch_factor > 0 else synth_hop
 
@@ -82,10 +82,10 @@ def pitch_shift_buffer(data: np.ndarray, semitones: float, sr: int) -> np.ndarra
 
 def apply_limiter(y: np.ndarray, ceiling_db: float, pre_gain: float = 2.0) -> np.ndarray:
     """Brick-wall limiter: chỉ chặn phần vượt ngưỡng, giữ nguyên phần dưới ngưỡng."""
-    limit_linear = 10 ** (ceiling_db / 20)
-    y = y * pre_gain
+    limit_linear = np.float32(10 ** (ceiling_db / 20))
+    y = y.astype(np.float32) * np.float32(pre_gain)
     y = np.clip(y, -limit_linear, limit_linear)
-    y = np.clip(y, -1.0, 1.0)
+    y = np.clip(y, np.float32(-1.0), np.float32(1.0))
     return y
 
 
